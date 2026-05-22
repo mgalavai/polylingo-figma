@@ -1,0 +1,13 @@
+{
+  "name": "polylingo",
+  "id": "1535203798611409130",
+  "api": "1.0.0",
+  "main": "code.js",
+  "ui": "dist/ui.html",
+  "capabilities": [],
+  "enableProposedApi": false,
+  "documentAccess": "dynamic-page",
+  "editorType": [
+    "figma"
+  ]
+}
