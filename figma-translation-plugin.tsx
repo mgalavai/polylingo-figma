@@ -40,6 +40,12 @@ type TranslationBundle = {
   translations: Record<string, Record<string, string>>
 }
 
+type TemplateStringRow = {
+  id: string
+  key: string
+  english: string
+}
+
 interface StringEntry {
   key: string
   base: string
@@ -47,6 +53,45 @@ interface StringEntry {
   status: StringStatus
   bound: boolean
 }
+
+const COMMON_LOCALES = [
+  ['en', 'English'],
+  ['sv', 'Swedish'],
+  ['de', 'German'],
+  ['fr', 'French'],
+  ['es', 'Spanish'],
+  ['it', 'Italian'],
+  ['pt', 'Portuguese'],
+  ['pt-rBR', 'Portuguese (Brazil)'],
+  ['nl', 'Dutch'],
+  ['da', 'Danish'],
+  ['nb', 'Norwegian Bokmal'],
+  ['fi', 'Finnish'],
+  ['is', 'Icelandic'],
+  ['pl', 'Polish'],
+  ['cs', 'Czech'],
+  ['sk', 'Slovak'],
+  ['sl', 'Slovenian'],
+  ['hr', 'Croatian'],
+  ['sr', 'Serbian'],
+  ['ro', 'Romanian'],
+  ['hu', 'Hungarian'],
+  ['bg', 'Bulgarian'],
+  ['el', 'Greek'],
+  ['et', 'Estonian'],
+  ['lv', 'Latvian'],
+  ['lt', 'Lithuanian'],
+  ['tr', 'Turkish'],
+  ['ru', 'Russian'],
+  ['uk', 'Ukrainian'],
+  ['he', 'Hebrew'],
+  ['ar', 'Arabic'],
+  ['fa', 'Persian'],
+  ['id', 'Indonesian'],
+  ['ja', 'Japanese'],
+  ['ko', 'Korean'],
+  ['zh', 'Chinese'],
+] as const
 
 export default function Component() {
   const [currentState, setCurrentState] = useState<PluginState>('start')
@@ -57,10 +102,12 @@ export default function Component() {
   const [importStatus, setImportStatus] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement | null>(null)
   const [templateOpen, setTemplateOpen] = useState(false)
-  const [templateLocaleCount, setTemplateLocaleCount] = useState(2)
+  const [localePickerOpen, setLocalePickerOpen] = useState(false)
   const [templateLocales, setTemplateLocales] = useState<string[]>(['en', 'sv'])
-  const [templateKey, setTemplateKey] = useState('app_name')
-  const [templateEnglishValue, setTemplateEnglishValue] = useState('')
+  const [templateLocaleQuery, setTemplateLocaleQuery] = useState('')
+  const [templateStrings, setTemplateStrings] = useState<TemplateStringRow[]>([
+    { id: 'template-1', key: 'app_name', english: '' },
+  ])
   const [templateError, setTemplateError] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
   const searchInputRef = useRef<HTMLInputElement | null>(null)
@@ -192,14 +239,28 @@ export default function Component() {
     return match[2] ? `${match[1].toLowerCase()}-r${match[2].toUpperCase()}` : match[1].toLowerCase()
   }
 
-  function updateTemplateLocaleCount(value: number) {
-    const count = Math.min(12, Math.max(1, Number.isFinite(value) ? Math.floor(value) : 1))
-    const defaults = ['en', 'sv', 'de', 'fr', 'es', 'it', 'pt', 'nl', 'pl', 'ja', 'ko', 'zh']
-    setTemplateLocaleCount(count)
-    setTemplateLocales(prev => Array.from({ length: count }, (_, index) => {
-      if (index === 0) return 'en'
-      return prev[index] || defaults[index] || `lang-${index + 1}`
-    }))
+  function toggleTemplateLocale(locale: string) {
+    if (locale === 'en') return
+    setTemplateLocales(prev => {
+      const normalized = normalizeLocaleCode(locale)
+      if (prev.includes(normalized)) return prev.filter(item => item !== normalized)
+      return [...prev, normalized]
+    })
+  }
+
+  function updateTemplateString(id: string, field: 'key' | 'english', value: string) {
+    setTemplateStrings(prev => prev.map(row => row.id === id ? { ...row, [field]: value } : row))
+  }
+
+  function addTemplateString() {
+    setTemplateStrings(prev => [
+      ...prev,
+      { id: `template-${Date.now()}-${prev.length}`, key: '', english: '' },
+    ])
+  }
+
+  function removeTemplateString(id: string) {
+    setTemplateStrings(prev => prev.length === 1 ? prev : prev.filter(row => row.id !== id))
   }
 
   function downloadTextFile(filename: string, content: string, type: string) {
@@ -215,21 +276,28 @@ export default function Component() {
   }
 
   function createTemplateJson() {
-    const key = templateKey.trim()
-    const englishValue = templateEnglishValue.trim()
-    const locales = templateLocales.slice(0, templateLocaleCount).map(normalizeLocaleCode)
+    const rows = templateStrings.map(row => ({ key: row.key.trim(), english: row.english.trim() }))
+    const locales = templateLocales.map(normalizeLocaleCode)
     const uniqueLocales = Array.from(new Set(locales))
 
-    if (!key) {
-      setTemplateError('Add a string name.')
+    if (rows.length === 0) {
+      setTemplateError('Add at least one string.')
       return
     }
-    if (!/^[A-Za-z0-9_.]+$/.test(key)) {
-      setTemplateError('Use only letters, numbers, underscores, or dots in the string name.')
+    if (rows.some(row => !row.key)) {
+      setTemplateError('Every string needs a name.')
       return
     }
-    if (!englishValue) {
-      setTemplateError('Add the English value.')
+    if (rows.some(row => !/^[A-Za-z0-9_.]+$/.test(row.key))) {
+      setTemplateError('Use only letters, numbers, underscores, or dots in string names.')
+      return
+    }
+    if (new Set(rows.map(row => row.key)).size !== rows.length) {
+      setTemplateError('String names must be unique.')
+      return
+    }
+    if (rows.some(row => !row.english)) {
+      setTemplateError('Every string needs an English value.')
       return
     }
     if (!uniqueLocales.includes('en')) {
@@ -243,7 +311,7 @@ export default function Component() {
 
     const translations: Record<string, Record<string, string>> = {}
     for (const locale of uniqueLocales) {
-      translations[locale] = { [key]: locale === 'en' ? englishValue : '' }
+      translations[locale] = Object.fromEntries(rows.map(row => [row.key, locale === 'en' ? row.english : '']))
     }
     const bundle = { baseLang: 'en', translations }
 
@@ -255,6 +323,7 @@ export default function Component() {
       `Created template with ${uniqueLocales.length} locale${uniqueLocales.length === 1 ? '' : 's'}`
     )
     setTemplateOpen(false)
+    setLocalePickerOpen(false)
     setTemplateError(null)
   }
 
@@ -490,6 +559,41 @@ export default function Component() {
     })
   }
 
+  function addStringEntry() {
+    const base = translationBundle?.translations[baseLanguage] || {}
+    let index = strings.length + 1
+    let key = `new_string_${index}`
+    while (strings.some(item => item.key === key) || key in base) {
+      index += 1
+      key = `new_string_${index}`
+    }
+
+    setTranslationBundle(prev => {
+      const langs = prev ? Object.keys(prev.translations) : [baseLanguage || 'en']
+      const translations = prev
+        ? { ...prev.translations }
+        : { [baseLanguage || 'en']: {} }
+      for (const lang of langs) {
+        translations[lang] = {
+          ...(translations[lang] || {}),
+          [key]: '',
+        }
+      }
+      return {
+        baseLang: prev?.baseLang || baseLanguage || 'en',
+        translations,
+      }
+    })
+    setStrings(prev => [...prev, { key, base: '', translated: '', status: 'missing', bound: false }])
+    setActiveTab('table-view')
+    setTimeout(() => {
+      const row = document.querySelector(`[data-key-row="${key}"]`)
+      if (row) {
+        try { row.scrollIntoView({ block: 'center', behavior: 'smooth' }) } catch (_) {}
+      }
+    }, 50)
+  }
+
   // Helpers for binding from rows
   function requestBindForKey(row: StringEntry) {
     const payload: any = { type: 'bind', key: row.key }
@@ -683,7 +787,7 @@ export default function Component() {
       </div>
 
       {/* Add New String */}
-      <Button variant="outline" className="w-full mt-3 mb-3">
+      <Button variant="outline" className="w-full mt-3 mb-3" onClick={addStringEntry}>
         <Plus className="w-4 h-4 mr-2" />
         Add new string
       </Button>
@@ -827,7 +931,7 @@ export default function Component() {
       </div>
 
         {/* Add New String */}
-        <Button variant="outline" className="w-full mt-4 mb-3"> {/* Added mt-4 */}
+        <Button variant="outline" className="w-full mt-4 mb-3" onClick={addStringEntry}> {/* Added mt-4 */}
           <Plus className="w-4 h-4 mr-2" />
           Add new string
         </Button>
@@ -1158,69 +1262,73 @@ export default function Component() {
       )}
       {templateOpen && (
         <div className="fixed inset-0 bg-black/25 flex items-center justify-center p-3 z-50" onClick={() => setTemplateOpen(false)}>
-          <div className="bg-white rounded-lg shadow-xl w-full max-w-sm border border-gray-200" onClick={(e) => e.stopPropagation()}>
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[92vh] border border-gray-200 flex flex-col" onClick={(e) => e.stopPropagation()}>
             <div className="px-4 py-3 border-b border-gray-200 flex items-center justify-between">
               <div>
                 <h3 className="text-sm font-semibold text-gray-900">Create JSON template</h3>
-                <p className="text-xs text-gray-500">Generate files and load them into Polylingo.</p>
+                <p className="text-xs text-gray-500">Pick locales, add strings, then download and import one JSON file.</p>
               </div>
               <button className="text-gray-500 text-lg leading-none" onClick={() => setTemplateOpen(false)}>x</button>
             </div>
-            <div className="p-4 space-y-3">
-              <div className="grid grid-cols-[1fr_88px] gap-2 items-end">
+            <div className="p-4 space-y-4 overflow-auto">
+              <div className="rounded-md border border-gray-200 bg-gray-50 p-3 flex items-center justify-between gap-3">
                 <div>
-                  <label className="text-xs font-medium text-gray-600">Supported locales</label>
-                  <Input
-                    type="number"
-                    min={1}
-                    max={12}
-                    value={templateLocaleCount}
-                    onChange={(e) => updateTemplateLocaleCount(Number(e.target.value))}
-                    className="mt-1"
-                  />
-                </div>
-                <Button variant="outline" onClick={() => updateTemplateLocaleCount(templateLocaleCount + 1)}>
-                  <Plus className="w-4 h-4 mr-1" />
-                  Add
-                </Button>
-              </div>
-
-              <div className="grid grid-cols-2 gap-2">
-                {templateLocales.slice(0, templateLocaleCount).map((locale, index) => (
-                  <div key={index}>
-                    <label className="text-xs font-medium text-gray-600">{index === 0 ? 'Base locale' : `Locale ${index + 1}`}</label>
-                    <Input
-                      value={locale}
-                      disabled={index === 0}
-                      onChange={(e) => {
-                        const next = [...templateLocales]
-                        next[index] = e.target.value
-                        setTemplateLocales(next)
-                      }}
-                      className="mt-1 font-mono text-xs"
-                    />
+                  <div className="text-xs font-medium text-gray-600">Locales</div>
+                  <div className="text-sm text-gray-900 mt-1">
+                    {templateLocales.slice(0, 6).map(locale => locale.toUpperCase()).join(', ')}
+                    {templateLocales.length > 6 ? ` +${templateLocales.length - 6}` : ''}
                   </div>
-                ))}
+                </div>
+                <Button variant="outline" onClick={() => setLocalePickerOpen(true)}>Choose locales</Button>
               </div>
 
-              <div>
-                <label className="text-xs font-medium text-gray-600">String name</label>
-                <Input
-                  value={templateKey}
-                  onChange={(e) => setTemplateKey(e.target.value)}
-                  placeholder="app_name"
-                  className="mt-1 font-mono text-xs"
-                />
-              </div>
-
-              <div>
-                <label className="text-xs font-medium text-gray-600">English value</label>
-                <Input
-                  value={templateEnglishValue}
-                  onChange={(e) => setTemplateEnglishValue(e.target.value)}
-                  placeholder="My app"
-                  className="mt-1"
-                />
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-medium text-gray-600">Strings</label>
+                  <Button variant="outline" size="sm" onClick={addTemplateString}>
+                    <Plus className="w-4 h-4 mr-1" />
+                    Add string
+                  </Button>
+                </div>
+                <div className="border border-gray-200 rounded-md overflow-hidden">
+                  <div className="grid grid-cols-[minmax(130px,0.9fr)_minmax(180px,1.1fr)_36px] bg-gray-50 border-b border-gray-200 text-xs font-medium text-gray-600">
+                    <div className="px-2 py-2">String name</div>
+                    <div className="px-2 py-2">English value</div>
+                    <div />
+                  </div>
+                  <div className="max-h-72 overflow-auto divide-y divide-gray-100">
+                    {templateStrings.map((row, index) => (
+                      <div key={row.id} className="grid grid-cols-[minmax(130px,0.9fr)_minmax(180px,1.1fr)_36px] gap-0 items-center bg-white">
+                        <div className="p-2">
+                          <Input
+                            value={row.key}
+                            onChange={(e) => updateTemplateString(row.id, 'key', e.target.value)}
+                            placeholder={index === 0 ? 'app_name' : 'string_name'}
+                            className="font-mono text-xs"
+                          />
+                        </div>
+                        <div className="p-2">
+                          <Input
+                            value={row.english}
+                            onChange={(e) => updateTemplateString(row.id, 'english', e.target.value)}
+                            placeholder={index === 0 ? 'My app' : 'English text'}
+                          />
+                        </div>
+                        <div className="p-2">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-8 w-8 p-0"
+                            disabled={templateStrings.length === 1}
+                            onClick={() => removeTemplateString(row.id)}
+                          >
+                            x
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
               </div>
 
               {templateError && <p className="text-xs text-red-600">{templateError}</p>}
@@ -1231,6 +1339,48 @@ export default function Component() {
                 <FileText className="w-4 h-4 mr-2" />
                 Create and import
               </Button>
+            </div>
+          </div>
+        </div>
+      )}
+      {localePickerOpen && (
+        <div className="fixed inset-0 bg-black/30 flex items-center justify-center p-3 z-[60]" onClick={() => setLocalePickerOpen(false)}>
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-md max-h-[88vh] border border-gray-200 flex flex-col" onClick={(e) => e.stopPropagation()}>
+            <div className="px-4 py-3 border-b border-gray-200 flex items-center justify-between">
+              <div>
+                <h3 className="text-sm font-semibold text-gray-900">Choose locales</h3>
+                <p className="text-xs text-gray-500">{templateLocales.length} selected. English is always included.</p>
+              </div>
+              <button className="text-gray-500 text-lg leading-none" onClick={() => setLocalePickerOpen(false)}>x</button>
+            </div>
+            <div className="p-3 border-b border-gray-200">
+              <Input
+                value={templateLocaleQuery}
+                onChange={(e) => setTemplateLocaleQuery(e.target.value)}
+                placeholder="Search locales..."
+              />
+            </div>
+            <div className="overflow-auto p-3 grid grid-cols-2 gap-2">
+              {COMMON_LOCALES.filter(([locale, name]) => {
+                const query = templateLocaleQuery.trim().toLowerCase()
+                return !query || locale.toLowerCase().includes(query) || name.toLowerCase().includes(query)
+              }).map(([locale, name]) => {
+                const selected = templateLocales.includes(locale)
+                return (
+                  <button
+                    key={locale}
+                    className={`text-left rounded-md border px-3 py-2 ${selected ? 'border-gray-900 bg-gray-900 text-white' : 'border-gray-200 bg-white text-gray-900 hover:bg-gray-50'}`}
+                    onClick={() => toggleTemplateLocale(locale)}
+                    disabled={locale === 'en'}
+                  >
+                    <div className="text-xs font-mono">{locale}</div>
+                    <div className={`text-xs truncate ${selected ? 'text-gray-200' : 'text-gray-500'}`}>{name}</div>
+                  </button>
+                )
+              })}
+            </div>
+            <div className="px-4 py-3 border-t border-gray-200 flex justify-end">
+              <Button onClick={() => setLocalePickerOpen(false)}>Done</Button>
             </div>
           </div>
         </div>

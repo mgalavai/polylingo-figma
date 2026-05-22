@@ -43,7 +43,7 @@ The plugin does not require network access. Keep the manifest local-only:
 
 ## JSON Format
 
-The UI accepts JSON language maps, either `{ "en": { ... }, "sv": { ... } }` or `{ "baseLang": "en", "translations": { ... } }`.
+The UI accepts JSON language maps, either `{ "en": { ... }, "sv": { ... } }` or `{ "baseLang": "en", "translations": { ... } }`. The built-in template wizard can create this file by selecting locales and adding starter English strings.
 
 ## Troubleshooting
 
