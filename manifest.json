@@ -1,6 +1,6 @@
 {
-  "name": "polylingo",
-  "id": "1535203798611409130",
+  "name": "polylingo-figma",
+  "id": "1535203798611409131",
   "api": "1.0.0",
   "main": "code.js",
   "ui": "dist/ui.html",

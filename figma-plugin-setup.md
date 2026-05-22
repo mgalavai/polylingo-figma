@@ -22,7 +22,7 @@ The plugin does not require network access. Keep the manifest local-only:
 
 ```json
 {
-  "name": "polylingo",
+  "name": "polylingo-figma",
   "api": "1.0.0",
   "main": "code.js",
   "ui": "dist/ui.html",
@@ -38,7 +38,7 @@ The plugin does not require network access. Keep the manifest local-only:
 1. Open Figma desktop.
 2. Go to Plugins > Development > Import plugin from manifest.
 3. Select `manifest.json` from this repo.
-4. Run the plugin.
+4. Run `polylingo-figma`.
 5. Select a frame, import or create JSON strings, bind keys to text layers, and switch languages.
 
 ## JSON Format

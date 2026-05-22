@@ -56,7 +56,7 @@ Run the plugin in Figma:
 1. Open Figma desktop.
 2. Go to Plugins > Development > Import plugin from manifest.
 3. Select `manifest.json`.
-4. Run the plugin and import or create a JSON translation file.
+4. Run `polylingo-figma` from Plugins > Development and import or create a JSON translation file.
 
 ## Project Structure
 
