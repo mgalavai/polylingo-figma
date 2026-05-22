@@ -5,6 +5,7 @@ A Figma plugin for binding localized string keys to text layers and applying upl
 ## Features
 
 - Import a JSON language map
+- Start from the included `example.json`
 - Create and download a starter JSON template from inside the plugin
 - Pick supported locales from a searchable checklist
 - Add multiple starter strings in one template
@@ -38,6 +39,8 @@ Or an object with explicit metadata:
 ```
 
 The template wizard creates the metadata form and imports it automatically after download. English is the base locale; other selected locales are created with empty values ready for translation.
+
+The plugin preloads the same shape as `example.json` so it opens with two sample strings and a few locales.
 
 ## Development
 

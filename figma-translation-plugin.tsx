@@ -93,13 +93,36 @@ const COMMON_LOCALES = [
   ['zh', 'Chinese'],
 ] as const
 
+const EXAMPLE_BUNDLE: TranslationBundle = {
+  baseLang: 'en',
+  translations: {
+    en: {
+      app_name: 'Polylingo',
+      welcome_message: 'Welcome to Polylingo',
+    },
+    sv: {
+      app_name: 'Polylingo',
+      welcome_message: 'Välkommen till Polylingo',
+    },
+    de: {
+      app_name: 'Polylingo',
+      welcome_message: 'Willkommen bei Polylingo',
+    },
+    fr: {
+      app_name: 'Polylingo',
+      welcome_message: 'Bienvenue dans Polylingo',
+    },
+  },
+}
+
 export default function Component() {
-  const [currentState, setCurrentState] = useState<PluginState>('start')
-  const [selectedLanguage, setSelectedLanguage] = useState('en')
-  const [availableLanguages, setAvailableLanguages] = useState<string[]>([])
-  const [baseLanguage, setBaseLanguage] = useState('en')
-  const [translationBundle, setTranslationBundle] = useState<TranslationBundle | null>(null)
-  const [importStatus, setImportStatus] = useState<string | null>(null)
+  const initialLanguage = 'sv'
+  const [currentState, setCurrentState] = useState<PluginState>('success')
+  const [selectedLanguage, setSelectedLanguage] = useState(initialLanguage)
+  const [availableLanguages, setAvailableLanguages] = useState<string[]>(Object.keys(EXAMPLE_BUNDLE.translations))
+  const [baseLanguage, setBaseLanguage] = useState(EXAMPLE_BUNDLE.baseLang)
+  const [translationBundle, setTranslationBundle] = useState<TranslationBundle | null>(EXAMPLE_BUNDLE)
+  const [importStatus, setImportStatus] = useState<string | null>('Loaded example.json')
   const fileInputRef = useRef<HTMLInputElement | null>(null)
   const [templateOpen, setTemplateOpen] = useState(false)
   const [localePickerOpen, setLocalePickerOpen] = useState(false)
@@ -135,8 +158,6 @@ export default function Component() {
   const pendingBindKeyRef = useRef<string | null>(null)
   const pendingUnbindKeyRef = useRef<string | null>(null)
 
-  const [strings, setStrings] = useState<StringEntry[]>([])
-
   function buildStringEntries(bundle: TranslationBundle, lang: string): StringEntry[] {
     const baseMap = bundle.translations[bundle.baseLang] || {}
     const langMap = bundle.translations[lang] || {}
@@ -147,6 +168,8 @@ export default function Component() {
       return { key, base, translated, status: translated ? 'translated' : 'missing', bound: false }
     })
   }
+
+  const [strings, setStrings] = useState<StringEntry[]>(() => buildStringEntries(EXAMPLE_BUNDLE, initialLanguage))
 
   function loadTranslationBundle(bundle: TranslationBundle, nextLang?: string, status?: string) {
     const langs = Object.keys(bundle.translations)
@@ -1262,7 +1285,7 @@ export default function Component() {
       )}
       {templateOpen && (
         <div className="fixed inset-0 bg-black/25 flex items-center justify-center p-3 z-50" onClick={() => setTemplateOpen(false)}>
-          <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[92vh] border border-gray-200 flex flex-col" onClick={(e) => e.stopPropagation()}>
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-3xl max-h-[92vh] border border-gray-200 flex flex-col" onClick={(e) => e.stopPropagation()}>
             <div className="px-4 py-3 border-b border-gray-200 flex items-center justify-between">
               <div>
                 <h3 className="text-sm font-semibold text-gray-900">Create JSON template</h3>
@@ -1291,15 +1314,15 @@ export default function Component() {
                   </Button>
                 </div>
                 <div className="border border-gray-200 rounded-md overflow-hidden">
-                  <div className="grid grid-cols-[minmax(130px,0.9fr)_minmax(180px,1.1fr)_36px] bg-gray-50 border-b border-gray-200 text-xs font-medium text-gray-600">
+                  <div className="grid grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)_44px] bg-gray-50 border-b border-gray-200 text-xs font-medium text-gray-600">
                     <div className="px-2 py-2">String name</div>
                     <div className="px-2 py-2">English value</div>
                     <div />
                   </div>
                   <div className="max-h-72 overflow-auto divide-y divide-gray-100">
                     {templateStrings.map((row, index) => (
-                      <div key={row.id} className="grid grid-cols-[minmax(130px,0.9fr)_minmax(180px,1.1fr)_36px] gap-0 items-center bg-white">
-                        <div className="p-2">
+                      <div key={row.id} className="grid grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)_44px] gap-0 items-center bg-white">
+                        <div className="p-2 min-w-0">
                           <Input
                             value={row.key}
                             onChange={(e) => updateTemplateString(row.id, 'key', e.target.value)}
@@ -1307,7 +1330,7 @@ export default function Component() {
                             className="font-mono text-xs"
                           />
                         </div>
-                        <div className="p-2">
+                        <div className="p-2 min-w-0">
                           <Input
                             value={row.english}
                             onChange={(e) => updateTemplateString(row.id, 'english', e.target.value)}

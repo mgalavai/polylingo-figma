@@ -1,0 +1,21 @@
+{
+  "baseLang": "en",
+  "translations": {
+    "en": {
+      "app_name": "Polylingo",
+      "welcome_message": "Welcome to Polylingo"
+    },
+    "sv": {
+      "app_name": "Polylingo",
+      "welcome_message": "Välkommen till Polylingo"
+    },
+    "de": {
+      "app_name": "Polylingo",
+      "welcome_message": "Willkommen bei Polylingo"
+    },
+    "fr": {
+      "app_name": "Polylingo",
+      "welcome_message": "Bienvenue dans Polylingo"
+    }
+  }
+}

@@ -1,5 +1,5 @@
 console.log('[Controller] Starting plugin and showing UI');
-figma.showUI(__html__, { width: 360, height: 620 });
+figma.showUI(__html__, { width: 680, height: 720 });
 
 function nodeIsOrInsideFrame(node) {
   let current = node;
