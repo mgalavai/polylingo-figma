@@ -22,7 +22,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { Upload, Search, Filter, Link, Unlink, Plus, MoreHorizontal, AlertCircle, Loader2, FileText, ChevronLeft, ChevronRight, Type as TypeIcon } from 'lucide-react'
+import { Upload, Download, Settings, Search, Filter, Link, Unlink, Plus, MoreHorizontal, AlertCircle, Loader2, FileText, ChevronLeft, ChevronRight, Type as TypeIcon } from 'lucide-react'
 
 type PluginState = 'start' | 'empty' | 'loading' | 'error' | 'success'
 type StringStatus = 'translated' | 'missing' | 'edited' | 'unused'
@@ -123,11 +123,14 @@ export default function Component() {
   const [baseLanguage, setBaseLanguage] = useState(EXAMPLE_BUNDLE.baseLang)
   const [translationBundle, setTranslationBundle] = useState<TranslationBundle | null>(EXAMPLE_BUNDLE)
   const [importStatus, setImportStatus] = useState<string | null>('Loaded example.json')
+  const [importedFilename, setImportedFilename] = useState<string>('example.json')
   const fileInputRef = useRef<HTMLInputElement | null>(null)
   const [templateOpen, setTemplateOpen] = useState(false)
+  const [configLocalesOpen, setConfigLocalesOpen] = useState(false)
   const [localePickerOpen, setLocalePickerOpen] = useState(false)
   const [templateLocales, setTemplateLocales] = useState<string[]>(['en', 'sv'])
   const [templateLocaleQuery, setTemplateLocaleQuery] = useState('')
+  const [configLocaleQuery, setConfigLocaleQuery] = useState('')
   const [templateStrings, setTemplateStrings] = useState<TemplateStringRow[]>([
     { id: 'template-1', key: 'app_name', english: '' },
   ])
@@ -339,6 +342,7 @@ export default function Component() {
     const bundle = { baseLang: 'en', translations }
 
     downloadTextFile('polylingo-template.json', JSON.stringify(bundle, null, 2), 'application/json;charset=utf-8')
+    setImportedFilename('polylingo-template.json')
 
     loadTranslationBundle(
       bundle,
@@ -348,6 +352,11 @@ export default function Component() {
     setTemplateOpen(false)
     setLocalePickerOpen(false)
     setTemplateError(null)
+  }
+
+  function exportTranslationBundle() {
+    if (!translationBundle) return
+    downloadTextFile(importedFilename || 'translations.json', JSON.stringify(translationBundle, null, 2), 'application/json;charset=utf-8')
   }
 
   function normalizeJsonImport(value: unknown): TranslationBundle {
@@ -382,6 +391,7 @@ export default function Component() {
       if (jsonFiles.length > 0) {
         const raw = await jsonFiles[0].text()
         bundle = normalizeJsonImport(JSON.parse(raw))
+        setImportedFilename(jsonFiles[0].name)
       } else {
         throw new Error('Upload a JSON language map')
       }
@@ -690,133 +700,6 @@ export default function Component() {
     return () => clearTimeout(t)
   }, [flashKey, activeTab, filterMode])
 
-  const MultiCardListView = () => ( // Renamed from CardListView
-    <div className="space-y-4">
-      {/* Search and Filter */}
-      <div className="flex gap-2">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-          <Input
-            ref={searchInputRef as any}
-            placeholder="Search strings..."
-            value={searchQuery}
-            onChange={(e) => { setSearchQuery(e.target.value); try { requestAnimationFrame(() => searchInputRef.current?.focus()) } catch(_) {} }}
-            className="pl-10"
-          />
-        </div>
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="outline" size="icon" title="Filter">
-              <span className="relative inline-block">
-                <Filter className="w-4 h-4" />
-                {filterMode !== 'all' && (
-                  <span className="absolute -top-0.5 -right-0.5 h-2 w-2 rounded-full bg-orange-500 ring-2 ring-white" />
-                )}
-              </span>
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={() => setFilterMode('all')}>All strings</DropdownMenuItem>
-            <DropdownMenuItem onClick={() => setFilterMode('bound')}>Bound</DropdownMenuItem>
-            <DropdownMenuItem onClick={() => setFilterMode('unbound')}>Unbound</DropdownMenuItem>
-            <DropdownMenuItem onClick={() => setFilterMode('missing')}>Missing translation</DropdownMenuItem>
-            <DropdownMenuItem onClick={() => setFilterMode('quality')}>Quality issues</DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      </div>
-
-      {/* Strings List */}
-      <div className="space-y-3">
-        {visibleStrings.map((string, index) => {
-          const boundOnSelection = (selectedFrameId ? (boundKeysByFrame[selectedFrameId] || []) : []).includes(string.key)
-          const count = selectedFrameId ? (boundKeyCountsByFrame[selectedFrameId]?.[string.key] || 0) : 0
-          return (
-          <div
-            key={index}
-            data-key-row={string.key}
-            className={`border rounded-lg p-3 space-y-2 bg-white hover:bg-gray-50 transition-colors ${flashKey === string.key ? 'ring-2 ring-blue-400/40 bg-blue-50/40' : ''}`}
-          >
-            {/* Header Row */}
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2 flex-1 min-w-0">
-                    <span
-                  className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] ${boundOnSelection ? 'bg-blue-100 text-blue-700 cursor-pointer' : 'bg-gray-100 text-gray-600 cursor-pointer'}`}
-                  title={boundOnSelection ? 'Select bound layer(s)' : 'Bind selection to this key'}
-                  onClick={(e) => {
-                    e.preventDefault()
-                        const target = e.currentTarget
-                        try { target.classList.remove('pl-pulse'); void target.offsetWidth; target.classList.add('pl-pulse') } catch (_) {}
-                    if (boundOnSelection) {
-                      if (!selectedFrameId) return
-                      post({ type: 'selectByKey', key: string.key, frameId: selectedFrameId, mode: 'first' })
-                    } else {
-                      requestBindForKey(string)
-                    }
-                  }}
-                >
-                  {boundOnSelection ? <Link className="w-3 h-3 text-blue-500" /> : <Unlink className="w-3 h-3 text-gray-400" />}
-                  {boundOnSelection && count > 0 ? count : ''}
-                </span>
-                <span className="font-mono text-xs text-gray-900 truncate">{string.key}</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <Badge className={`${getStatusColor(string.status)} text-xs px-2 py-0`}>
-                  {string.status}
-                </Badge>
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" size="icon" className="w-6 h-6">
-                      <MoreHorizontal className="w-3 h-3" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                    <DropdownMenuItem onClick={(e) => { e.preventDefault(); boundOnSelection ? requestUnbindForKey(string) : requestBindForKey(string) }}>
-                      {boundOnSelection ? (
-                        <>
-                          <Unlink className="w-4 h-4 mr-2" />
-                          Unbind layer
-                        </>
-                      ) : (
-                        <>
-                          <Link className="w-4 h-4 mr-2" />
-                          Bind to layer
-                        </>
-                      )}
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </div>
-            </div>
-
-            {/* Base Text */}
-            <div className="text-sm text-gray-600 bg-gray-50 rounded px-2 py-1">
-              <span className="text-xs text-gray-500 uppercase tracking-wide">{baseLanguage?.toUpperCase() || 'EN'}:</span> {string.base}
-            </div>
-
-            {/* Translation Input */}
-            <div className="space-y-1">
-              <div className="flex items-center justify-between">
-                <span className="text-xs text-gray-500 uppercase tracking-wide">{selectedLanguage?.toUpperCase() || 'SV'}:</span>
-              </div>
-              <Input
-                value={string.translated}
-                onChange={(e) => updateTranslation(string.key, e.target.value)}
-                placeholder="Enter translation..."
-                className="text-sm"
-              />
-            </div>
-          </div>
-        )})}
-      </div>
-
-      {/* Add New String */}
-      <Button variant="outline" className="w-full mt-3 mb-3" onClick={addStringEntry}>
-        <Plus className="w-4 h-4 mr-2" />
-        Add new string
-      </Button>
-    </div>
-  )
-
   const TableView = () => (
     <div className="space-y-4 p-0"> {/* Removed outer padding */}
       {/* Search and Filter */}
@@ -961,153 +844,6 @@ export default function Component() {
       </div>
     )
 
-  const CardView = () => { // Renamed from SingleStringView
-    const [currentIndex, setCurrentIndex] = useState(0)
-    const currentString = visibleStrings[currentIndex]
-
-    const handleNext = () => {
-      if (currentIndex < visibleStrings.length - 1) {
-        setCurrentIndex(currentIndex + 1)
-      }
-    }
-
-    const handlePrev = () => {
-      if (currentIndex > 0) {
-        setCurrentIndex(currentIndex - 1)
-      }
-    }
-
-    // Reset index when the result set changes (e.g., search or filters)
-    useEffect(() => {
-      setCurrentIndex(0)
-    }, [searchQuery, filterMode, selectedLanguage, selectedFrameId])
-
-    if (!currentString) {
-      return <div className="text-center text-gray-500 py-12">No strings available.</div>
-    }
-
-    return (
-      <div className="flex flex-col h-full">
-        <div className="flex-1 overflow-auto p-0 space-y-4">
-          <div className="border rounded-lg p-4 space-y-3 bg-white">
-            {/* Header Row */}
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2 flex-1 min-w-0">
-                {(() => {
-                  const boundOnSelection = (selectedFrameId ? (boundKeysByFrame[selectedFrameId] || []) : []).includes(currentString.key)
-                  const count = selectedFrameId ? (boundKeyCountsByFrame[selectedFrameId]?.[currentString.key] || 0) : 0
-                  return (
-                    <span
-                      className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[11px] ${boundOnSelection ? 'bg-blue-100 text-blue-700 cursor-pointer' : 'bg-gray-100 text-gray-600 cursor-pointer'}`}
-                      title={boundOnSelection ? 'Select bound layer(s)' : 'Bind selection to this key'}
-                      onClick={(e) => {
-                        e.preventDefault()
-                        const target = e.currentTarget
-                        try { target.classList.remove('pl-pulse'); void target.offsetWidth; target.classList.add('pl-pulse') } catch (_) {}
-                        if (boundOnSelection) {
-                          if (!selectedFrameId) return
-                          post({ type: 'selectByKey', key: currentString.key, frameId: selectedFrameId, mode: 'first' })
-                        } else {
-                          requestBindForKey(currentString)
-                        }
-                      }}
-                    >
-                      {boundOnSelection ? <Link className="w-4 h-4 text-blue-500" /> : <Unlink className="w-4 h-4 text-gray-400" />}
-                      {boundOnSelection && count > 0 ? count : ''}
-                    </span>
-                  )
-                })()}
-                <span className="font-mono text-sm text-gray-900 truncate">{currentString.key}</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <Badge className={`${getStatusColor(currentString.status)} text-sm px-2 py-0`}>
-                  {currentString.status}
-                </Badge>
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" size="icon" className="w-7 h-7">
-                      <MoreHorizontal className="w-4 h-4" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                   <DropdownMenuContent align="end">
-                    {(() => {
-                      const boundOnSelection = selectedFrameId ? (boundKeysByFrame[selectedFrameId] || []).includes(currentString.key) : false
-                      return (
-                    <DropdownMenuItem onClick={(e) => { e.preventDefault(); boundOnSelection ? requestUnbindForKey(currentString) : requestBindForKey(currentString) }}>
-                      {boundOnSelection ? (
-                        <>
-                          <Unlink className="w-4 h-4 mr-2" />
-                          Unbind layer
-                        </>
-                      ) : (
-                        <>
-                          <Link className="w-4 h-4 mr-2" />
-                          Bind to layer
-                        </>
-                      )}
-                    </DropdownMenuItem>
-                      )
-                    })()}
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </div>
-            </div>
-
-            {/* Base Text */}
-            <div className="text-base text-gray-700 bg-gray-50 rounded px-3 py-2">
-              <span className="text-sm text-gray-500 uppercase tracking-wide">{baseLanguage?.toUpperCase() || 'EN'}:</span> {currentString.base}
-            </div>
-
-            {/* Translation Input */}
-            <div className="space-y-1">
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-gray-500 uppercase tracking-wide">{selectedLanguage?.toUpperCase() || 'SV'}:</span>
-              </div>
-              <textarea
-                key={`card-input-${currentString.key}-${selectedLanguage}`}
-                value={currentString.translated || ''}
-                onFocus={() => setEditingKey(currentString.key)}
-                onBlur={() => setEditingKey((prev) => (prev === currentString.key ? null : prev))}
-                onChange={(e) => updateTranslation(currentString.key, e.target.value)}
-                placeholder="Enter translation..."
-                className="w-full text-base border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-vertical"
-                rows={4}
-                style={{ minHeight: '96px' }}
-              />
-            </div>
-          </div>
-        </div>
-
-        {/* Navigation Footer (lightweight so it doesn't conflict with sticky footer) */}
-        <div className="p-3 flex items-center justify-between">
-          <Button 
-            variant="outline" 
-            size="sm" 
-            onClick={handlePrev} 
-            disabled={currentIndex === 0}
-            className="h-8 px-3"
-          >
-            <ChevronLeft className="w-4 h-4 mr-1" />
-            Prev
-          </Button>
-          <span className="text-xs text-gray-600">
-       {currentIndex + 1} / {visibleStrings.length}
-          </span>
-          <Button 
-            variant="outline" 
-            size="sm" 
-            onClick={handleNext} 
-            disabled={currentIndex === visibleStrings.length - 1}
-            className="h-8 px-3"
-          >
-            Next
-            <ChevronRight className="w-4 h-4 ml-1" />
-          </Button>
-        </div>
-      </div>
-    )
-  }
-
   return (
     <div className="w-full h-full bg-white flex flex-col">
       <input
@@ -1163,11 +899,26 @@ export default function Component() {
             >
               <ChevronLeft className="w-4 h-4" />
             </Button>
-            <Select value={selectedLanguage} onValueChange={setSelectedLanguage}>
+            <Select
+              value={selectedLanguage}
+              onValueChange={(val) => {
+                if (val === '_config_locales') {
+                  setConfigLocalesOpen(true)
+                } else {
+                  setSelectedLanguage(val)
+                }
+              }}
+            >
               <SelectTrigger size="sm" className="h-8 text-xs px-2">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
+                <SelectItem value="_config_locales" className="text-blue-600 font-medium cursor-pointer border-b border-gray-100 pb-1.5 mb-1.5 focus:text-blue-700">
+                  <span className="flex items-center gap-1.5">
+                    <Settings className="w-3.5 h-3.5 text-blue-500" />
+                    Config locales...
+                  </span>
+                </SelectItem>
                 {availableLanguages.map((lang) => (
                   <SelectItem key={lang} value={lang}>
                     <span>{flagForLanguage(lang)} {lang.toUpperCase()}</span>
@@ -1237,6 +988,17 @@ export default function Component() {
             >
               <Upload className="w-4 h-4" />
             </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-8 w-8 p-0"
+              aria-label="Export translations"
+              title="Export translations"
+              onClick={exportTranslationBundle}
+              disabled={!translationBundle}
+            >
+              <Download className="w-4 h-4" />
+            </Button>
           </div>
         </div>
       </div>
@@ -1249,18 +1011,9 @@ export default function Component() {
       {/* Main Content */}
       <div className="flex-1 flex flex-col min-h-0">
         {currentState === 'success' && strings.length > 0 && (
-          <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col min-h-0">
-            <TabsList className="grid w-full grid-cols-2 rounded-md bg-muted p-1 h-10">
-              <TabsTrigger value="table-view">Table</TabsTrigger>
-              <TabsTrigger value="card-view">Card</TabsTrigger>
-            </TabsList>
-            <TabsContent value="table-view" className="flex-1 overflow-auto mt-0 min-h-0">
-              <TableView />
-            </TabsContent>
-            <TabsContent value="card-view" className="flex-1 overflow-hidden mt-0 min-h-0">
-              <CardView /> {/* Now renders the single-card view */}
-            </TabsContent>
-          </Tabs>
+          <div className="flex-1 overflow-auto mt-0 min-h-0">
+            <TableView />
+          </div>
         )}
         {((currentState === 'success' && strings.length === 0) || currentState === 'empty') && <EmptyState />}
         {currentState === 'loading' && <LoadingState />}
@@ -1271,7 +1024,11 @@ export default function Component() {
       {currentState === 'success' && (
         <div className="py-2 px-3 -mx-3 -mb-3 border-t border-gray-200 bg-gray-50">
           <div className="flex justify-between text-xs text-gray-600">
-            <span>{strings.length} strings total</span>
+            <span className="flex items-center gap-1.5">
+              <span className="font-medium text-gray-700">{importedFilename}</span>
+              <span className="text-gray-400">•</span>
+              <span>{strings.length} strings total</span>
+            </span>
             {(() => {
               const missing = strings.filter(s => !s.translated).length
               const boundKeys = selectedFrameId ? (boundKeysByFrame[selectedFrameId]?.length || 0) : 0
@@ -1404,6 +1161,96 @@ export default function Component() {
             </div>
             <div className="px-4 py-3 border-t border-gray-200 flex justify-end">
               <Button onClick={() => setLocalePickerOpen(false)}>Done</Button>
+            </div>
+          </div>
+        </div>
+      )}
+      {configLocalesOpen && (
+        <div className="fixed inset-0 bg-black/25 flex items-center justify-center p-3 z-[70]" onClick={() => setConfigLocalesOpen(false)}>
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-md max-h-[88vh] border border-gray-200 flex flex-col animate-in fade-in zoom-in-95 duration-150" onClick={(e) => e.stopPropagation()}>
+            <div className="px-4 py-3 border-b border-gray-200 flex items-center justify-between">
+              <div>
+                <h3 className="text-sm font-semibold text-gray-900">Configure Locales</h3>
+                <p className="text-xs text-gray-500">Toggle active languages in the selector.</p>
+              </div>
+              <button className="text-gray-500 text-lg leading-none hover:text-gray-700 font-bold" onClick={() => setConfigLocalesOpen(false)}>x</button>
+            </div>
+            
+            <div className="p-3 border-b border-gray-200">
+              <Input
+                value={configLocaleQuery}
+                onChange={(e) => setConfigLocaleQuery(e.target.value)}
+                placeholder="Search locales..."
+              />
+            </div>
+
+            <div className="overflow-auto p-4 max-h-[60vh] grid grid-cols-2 gap-x-6 gap-y-3">
+              {(() => {
+                const allLocaleCodes = Array.from(new Set([
+                  ...COMMON_LOCALES.map(([code]) => code),
+                  ...(translationBundle ? Object.keys(translationBundle.translations) : [])
+                ]))
+
+                const getLocaleName = (code: string) => {
+                  const common = COMMON_LOCALES.find(([c]) => c === code)
+                  return common ? common[1] : code.toUpperCase()
+                }
+
+                return allLocaleCodes.filter((lang) => {
+                  const query = configLocaleQuery.trim().toLowerCase()
+                  const name = getLocaleName(lang).toLowerCase()
+                  return !query || lang.toLowerCase().includes(query) || name.includes(query)
+                }).map((lang) => {
+                  const isBase = lang === baseLanguage
+                  const isActive = availableLanguages.includes(lang)
+                  const name = getLocaleName(lang)
+                  return (
+                    <div key={lang} className="flex items-center justify-between py-1 border-b border-gray-50 pb-1">
+                      <span className="text-sm font-medium flex items-center gap-2 truncate pr-2">
+                        <span className="text-base shrink-0">{flagForLanguage(lang)}</span>
+                        <span className="text-gray-900 truncate text-xs" title={`${name} (${lang.toUpperCase()})`}>
+                          {name} <span className="text-xs text-gray-400 font-normal">({lang.toUpperCase()})</span> {isBase && <span className="text-xs text-blue-500 font-semibold">(Base)</span>}
+                        </span>
+                      </span>
+                      <button
+                        className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${isActive ? 'bg-blue-600' : 'bg-gray-200'} ${isBase ? 'opacity-50 cursor-not-allowed' : ''}`}
+                        disabled={isBase}
+                        onClick={() => {
+                          if (isActive) {
+                            const nextAvail = availableLanguages.filter(item => item !== lang)
+                            setAvailableLanguages(nextAvail)
+                            if (selectedLanguage === lang) {
+                              setSelectedLanguage(baseLanguage || nextAvail[0] || 'en')
+                            }
+                          } else {
+                            setAvailableLanguages([...availableLanguages, lang])
+                            // Initialize inside the translation bundle if not already present
+                            setTranslationBundle(prev => {
+                              if (!prev) return prev
+                              if (prev.translations[lang]) return prev
+                              return {
+                                ...prev,
+                                translations: {
+                                  ...prev.translations,
+                                  [lang]: {}
+                                }
+                              }
+                            })
+                          }
+                        }}
+                      >
+                        <span
+                          className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow-sm ring-0 transition duration-200 ease-in-out ${isActive ? 'translate-x-4' : 'translate-x-0'}`}
+                        />
+                      </button>
+                    </div>
+                  )
+                })
+              })()}
+            </div>
+            
+            <div className="px-4 py-3 border-t border-gray-200 flex justify-end">
+              <Button onClick={() => setConfigLocalesOpen(false)}>Done</Button>
             </div>
           </div>
         </div>
